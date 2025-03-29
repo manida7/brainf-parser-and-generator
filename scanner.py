@@ -75,16 +75,16 @@ def brainfuck_scanner(file_path):
 def generate_assembly(parsed_code, output_file):
     assembly = [
         ".section .bss",
-        ".comm tape, 30000",  # Reserve 30,000 bytes for the tape
+        ".comm tape, 30000",
         "",
         ".section .text",
         ".globl _start",
         "",
         "_start:",
-        "    movq $tape, %rbx",  # Initialize memory pointer
+        "    movq $tape, %rbx",
     ]
 
-    loop_stack = []  # Initialize the loop stack to track loop labels
+    loop_stack = []
 
     for command in parsed_code:
         if command == "+":
@@ -97,19 +97,19 @@ def generate_assembly(parsed_code, output_file):
             assembly.append("    decq %rbx")
         elif command == ".":
             assembly.extend([
-                "    movq $1, %rax",           # syscall: write
-                "    movq $1, %rdi",           # file descriptor: stdout
-                "    movq $1, %rdx",           # number of bytes to write
-                "    movzbl (%rbx), %rsi",     # Load value at current cell
-                "    syscall"                  # Make the syscall
+                "    movq $1, %rax",
+                "    movq $1, %rdi",
+                "    movq $1, %rdx",
+                "    movzbl (%rbx), %rsi",
+                "    syscall"
             ])
         elif command == ",":
             assembly.extend([
-                "    movq $0, %rax",           # syscall: read
-                "    movq $0, %rdi",           # file descriptor: stdin
-                "    movq $1, %rdx",           # number of bytes to read
-                "    syscall",                 # Make the syscall
-                "    movb %al, (%rbx)"         # Store input in current cell
+                "    movq $0, %rax",
+                "    movq $0, %rdi",
+                "    movq $1, %rdx",
+                "    syscall",
+                "    movb %al, (%rbx)"
             ])
         elif command == "[":
             loop_start = f"loop_start_{len(loop_stack)}"
@@ -126,8 +126,8 @@ def generate_assembly(parsed_code, output_file):
             assembly.append(f"{loop_end}:")
 
     assembly.extend([
-        "    movq $60, %rax",  # syscall: exit
-        "    xor %rdi, %rdi",  # exit code: 0
+        "    movq $60, %rax",
+        "    xor %rdi, %rdi",
         "    syscall"
     ])
 
@@ -138,12 +138,11 @@ def generate_assembly(parsed_code, output_file):
 
 def assemble_and_link(assembly_file, output_binary):
     try:
-        # Assemble the .s file into an object file
         object_file = assembly_file.replace('.s', '.o')
         subprocess.run(['as', assembly_file, '-o', object_file], check=True)
         print(f"Object file '{object_file}' created successfully.")
 
-        # Link the object file to create the final executable
+
         subprocess.run(['ld', object_file, '-o', output_binary], check=True)
         print(f"Executable binary '{output_binary}' created successfully.")
     except subprocess.CalledProcessError as e:
