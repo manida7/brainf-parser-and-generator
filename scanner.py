@@ -71,20 +71,19 @@ def brainfuck_scanner(file_path):
 
     return filtered_code
 
-
 def generate_assembly(parsed_code, output_file):
     assembly = [
         ".section .bss",
-        ".comm tape, 30000",
+        ".comm tape, 30000",  # Reserve 30,000 bytes for the tape
         "",
         ".section .text",
         ".globl _start",
         "",
         "_start:",
-        "    movq $tape, %rbx",
+        "    movq $tape, %rbx",  # Initialize memory pointer
     ]
 
-    loop_stack = []
+    loop_stack = []  # Initialize the loop stack to track loop labels
 
     for command in parsed_code:
         if command == "+":
@@ -97,19 +96,20 @@ def generate_assembly(parsed_code, output_file):
             assembly.append("    decq %rbx")
         elif command == ".":
             assembly.extend([
-                "    movq $1, %rax",
-                "    movq $1, %rdi",
-                "    movq $1, %rdx",
-                "    movzbl (%rbx), %rsi",
-                "    syscall"
+                "    movq $1, %rax",           # syscall: write
+                "    movq $1, %rdi",           # file descriptor: stdout
+                "    movq $1, %rdx",           # number of bytes to write
+                "    movzbl (%rbx), %eax",     # Load value at current cell into %eax
+                "    movq %rax, %rsi",         # Move value from %rax to %rsi
+                "    syscall"                  # Make the syscall
             ])
         elif command == ",":
             assembly.extend([
-                "    movq $0, %rax",
-                "    movq $0, %rdi",
-                "    movq $1, %rdx",
-                "    syscall",
-                "    movb %al, (%rbx)"
+                "    movq $0, %rax",           # syscall: read
+                "    movq $0, %rdi",           # file descriptor: stdin
+                "    movq $1, %rdx",           # number of bytes to read
+                "    syscall",                 # Make the syscall
+                "    movb %al, (%rbx)"         # Store input in current cell
             ])
         elif command == "[":
             loop_start = f"loop_start_{len(loop_stack)}"
@@ -126,13 +126,16 @@ def generate_assembly(parsed_code, output_file):
             assembly.append(f"{loop_end}:")
 
     assembly.extend([
-        "    movq $60, %rax",
-        "    xor %rdi, %rdi",
+        "    movq $60, %rax",  # syscall: exit
+        "    xor %rdi, %rdi",  # exit code: 0
         "    syscall"
     ])
 
+    # Ensure the file ends with a newline
+    assembly.append("")  # Add an empty line at the end
+
     with open(output_file, "w") as f:
-        f.write("\n".join(assembly))
+        f.write("\n".join(assembly) + "\n")  # Add a newline at the end of the file
     print(f"Assembly code generated in '{output_file}'")
 
 
