@@ -74,50 +74,50 @@ def brainfuck_scanner(file_path):
 
 def generate_assembly(parsed_code, output_file):
     assembly = [
-        "section .bss",
-        "    tape resb 30000",
+        ".section .bss",
+        ".comm tape, 30000",  # Reserve 30,000 bytes for the tape
         "",
-        "section .text",
-        "    global _start",
+        ".section .text",
+        ".globl _start",
         "",
         "_start:",
-        "    mov rsi, tape",
+        "    movq $tape, %rbx",  # Initialize memory pointer
     ]
 
-    loop_counter = 0
-    loop_stack = []
+    loop_stack = []  # Initialize the loop stack to track loop labels
 
     for command in parsed_code:
         if command == "+":
-            assembly.append("    inc byte [rsi]")
+            assembly.append("    addb $1, (%rbx)")
         elif command == "-":
-            assembly.append("    dec byte [rsi]")
+            assembly.append("    subb $1, (%rbx)")
         elif command == ">":
-            assembly.append("    inc rsi")
+            assembly.append("    incq %rbx")
         elif command == "<":
-            assembly.append("    dec rsi")
+            assembly.append("    decq %rbx")
         elif command == ".":
             assembly.extend([
-                "    mov rax, 1",
-                "    mov rdi, 1",
-                "    mov rdx, 1",
-                "    syscall"
+                "    movq $1, %rax",           # syscall: write
+                "    movq $1, %rdi",           # file descriptor: stdout
+                "    movq $1, %rdx",           # number of bytes to write
+                "    movzbl (%rbx), %rsi",     # Load value at current cell
+                "    syscall"                  # Make the syscall
             ])
         elif command == ",":
             assembly.extend([
-                "    mov rax, 0",
-                "    mov rdi, 0",
-                "    mov rdx, 1",
-                "    syscall"
+                "    movq $0, %rax",           # syscall: read
+                "    movq $0, %rdi",           # file descriptor: stdin
+                "    movq $1, %rdx",           # number of bytes to read
+                "    syscall",                 # Make the syscall
+                "    movb %al, (%rbx)"         # Store input in current cell
             ])
         elif command == "[":
-            loop_start = f"loop_start_{loop_counter}"
-            loop_end = f"loop_end_{loop_counter}"
+            loop_start = f"loop_start_{len(loop_stack)}"
+            loop_end = f"loop_end_{len(loop_stack)}"
             loop_stack.append((loop_start, loop_end))
             assembly.append(f"{loop_start}:")
-            assembly.append("    cmp byte [rsi], 0")
+            assembly.append("    cmpb $0, (%rbx)")
             assembly.append(f"    je {loop_end}")
-            loop_counter += 1
         elif command == "]":
             if not loop_stack:
                 raise SyntaxError("Unmatched closing bracket ']'")
@@ -126,8 +126,8 @@ def generate_assembly(parsed_code, output_file):
             assembly.append(f"{loop_end}:")
 
     assembly.extend([
-        "    mov rax, 60",
-        "    xor rdi, rdi",
+        "    movq $60, %rax",  # syscall: exit
+        "    xor %rdi, %rdi",  # exit code: 0
         "    syscall"
     ])
 
